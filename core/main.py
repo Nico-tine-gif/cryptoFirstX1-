@@ -15,6 +15,7 @@ from .admin.funds import AdminFunds
 from .p9.reconcile import reconcile as _reconcile
 from .deposits.monetary_credit import MonetaryDepositCredit
 from .withdrawals.monetary_debit import MonetaryWithdrawal
+from .security.gates import PolicyEngine
 
 
 def _admin_from_env():
@@ -158,6 +159,27 @@ def cmd_unlock(_args):
     print("emergency lock RELEASED")
 
 
+
+
+def cmd_policy(_args):
+    engine = PolicyEngine(_admin_from_env())
+    for k, v in engine.snapshot().items():
+        print(f"{k:32s}: {v}")
+
+
+def cmd_allowlist(args):
+    engine = PolicyEngine(_admin_from_env())
+    if args.action == "list":
+        for row in engine.allowlist.entries():
+            print(row)
+    elif args.action == "add":
+        engine.allowlist.add(args.address, args.label or "")
+        print(f"added: {args.address}")
+    elif args.action == "remove":
+        engine.allowlist.remove(args.address)
+        print(f"removed: {args.address}")
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog=PROJECT_NAME,
@@ -198,6 +220,15 @@ def build_parser():
     rl = sub.add_parser("release")
     rl.add_argument("reservation_id")
     rl.set_defaults(func=cmd_release)
+
+
+    sub.add_parser("policy").set_defaults(func=cmd_policy)
+
+    al = sub.add_parser("allowlist")
+    al.add_argument("action", choices=["list", "add", "remove"])
+    al.add_argument("address", nargs="?", default="")
+    al.add_argument("--label", default="")
+    al.set_defaults(func=cmd_allowlist)
 
     sub.add_parser("lock").set_defaults(func=cmd_lock)
     sub.add_parser("unlock").set_defaults(func=cmd_unlock)
