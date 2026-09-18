@@ -22,17 +22,25 @@ class ReconcileReport:
 def reconcile(db_path="data/cryptoFirstX1.db") -> ReconcileReport:
     con = sqlite3.connect(db_path)
     try:
-        # Chain side — EVERY deposit ever recorded, any state
-        chain = {r[0] for r in con.execute(
-            "SELECT deposit_id FROM deposits WHERE deposit_id IS NOT NULL"
+        tables = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
         )}
 
-        # Ledger side — every DEPOSIT_CREDIT and who it credits
-        rows = list(con.execute(
-            "SELECT reference_id, account_id FROM monetary_ledger "
-            "WHERE entry_type = ? AND reference_id IS NOT NULL",
-            (LEDGER_ENTRY_TYPE,),
-        ))
+        if 'deposits' not in tables:
+            chain = set()
+        else:
+            chain = {r[0] for r in con.execute(
+                "SELECT deposit_id FROM deposits WHERE deposit_id IS NOT NULL"
+            )}
+
+        if 'monetary_ledger' not in tables:
+            rows = []
+        else:
+            rows = list(con.execute(
+                "SELECT reference_id, account_id FROM monetary_ledger "
+                "WHERE entry_type = ? AND reference_id IS NOT NULL",
+                (LEDGER_ENTRY_TYPE,),
+            ))
         credited = {r[0] for r in rows}
         non_admin = sorted({r[1] for r in rows if r[1] != ADMIN_ACCOUNT_ID})
 
