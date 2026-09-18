@@ -14,6 +14,7 @@ from .security.admin import AdminController
 from .admin.funds import AdminFunds
 from .p9.reconcile import reconcile as _reconcile
 from .deposits.monetary_credit import MonetaryDepositCredit
+from .withdrawals.monetary_debit import MonetaryWithdrawal
 
 
 def _admin_from_env():
@@ -79,25 +80,31 @@ def cmd_reconcile(_args):
 
 
 def cmd_dashboard(_args):
-    d = _funds().dashboard()
+    _funds()  # auth check
+    view = {}
+    try:
+        from .p9.admin_account import P9AdminAccount
+        view = P9AdminAccount().dashboard()
+    except Exception:
+        view = _funds().dashboard()
     for key in ("available_units", "reserved_units",
                 "deposit_backed_units", "system_earned_units",
                 "total_units"):
-        print(f"{key:22s}: {d.get(key)}")
+        print(f"{key:22s}: {view.get(key, 'n/a')}")
 
 
-def cmd_deposits(_args):
-    for row in _funds().deposits():
+def cmd_deposits(args):
+    for row in _funds().deposits(limit=args.limit):
         print(row)
 
 
-def cmd_withdrawals(_args):
-    for row in _funds().withdrawals():
+def cmd_withdrawals(args):
+    for row in _funds().withdrawals(limit=args.limit):
         print(row)
 
 
-def cmd_ledger(_args):
-    for row in _funds().ledger_history():
+def cmd_ledger(args):
+    for row in _funds().ledger_history(limit=args.limit):
         print(row)
 
 
@@ -113,6 +120,28 @@ def cmd_credit(args):
         deposit_id=args.deposit_id,
     )
     print(f"credited: {entry}")
+
+
+def cmd_reserve(args):
+    _admin_from_env()
+    reservation_id = MonetaryWithdrawal().reserve(
+        account_id=args.account,
+        amount_cents=args.amount_cents,
+        withdrawal_id=args.withdrawal_id,
+    )
+    print(f"reserved: {reservation_id}")
+
+
+def cmd_settle(args):
+    _admin_from_env()
+    result = MonetaryWithdrawal().settle(args.reservation_id)
+    print(f"settled: {result}")
+
+
+def cmd_release(args):
+    _admin_from_env()
+    result = MonetaryWithdrawal().release(args.reservation_id)
+    print(f"released: {result}")
 
 
 def cmd_lock(_args):
@@ -140,9 +169,14 @@ def build_parser():
     sub.add_parser("login-help").set_defaults(func=cmd_login_help)
     sub.add_parser("reconcile").set_defaults(func=cmd_reconcile)
     sub.add_parser("dashboard").set_defaults(func=cmd_dashboard)
-    sub.add_parser("deposits").set_defaults(func=cmd_deposits)
-    sub.add_parser("withdrawals").set_defaults(func=cmd_withdrawals)
-    sub.add_parser("ledger").set_defaults(func=cmd_ledger)
+
+    for name, fn in (("deposits", cmd_deposits),
+                     ("withdrawals", cmd_withdrawals),
+                     ("ledger", cmd_ledger)):
+        sp = sub.add_parser(name)
+        sp.add_argument("--limit", type=int, default=100)
+        sp.set_defaults(func=fn)
+
     sub.add_parser("security").set_defaults(func=cmd_security)
 
     c = sub.add_parser("credit")
@@ -150,6 +184,20 @@ def build_parser():
     c.add_argument("--amount-cents", type=int, required=True)
     c.add_argument("--account", default="admin")
     c.set_defaults(func=cmd_credit)
+
+    r = sub.add_parser("reserve")
+    r.add_argument("withdrawal_id")
+    r.add_argument("--amount-cents", type=int, required=True)
+    r.add_argument("--account", default="admin")
+    r.set_defaults(func=cmd_reserve)
+
+    s = sub.add_parser("settle")
+    s.add_argument("reservation_id")
+    s.set_defaults(func=cmd_settle)
+
+    rl = sub.add_parser("release")
+    rl.add_argument("reservation_id")
+    rl.set_defaults(func=cmd_release)
 
     sub.add_parser("lock").set_defaults(func=cmd_lock)
     sub.add_parser("unlock").set_defaults(func=cmd_unlock)
