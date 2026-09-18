@@ -6,3 +6,4 @@ logs/*.jsonl
 backup_*/
 *.bak
 *.bak_*
+*.pre_cli
