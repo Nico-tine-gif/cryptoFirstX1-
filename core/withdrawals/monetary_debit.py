@@ -151,7 +151,7 @@ class MonetaryWithdrawal:
             db.execute("BEGIN IMMEDIATE")
 
             row = db.execute("""
-                SELECT account_id, amount_cents, state
+                SELECT account_id, amount_cents, state, reference_id
                 FROM monetary_reservations
                 WHERE reservation_id=?
             """, (reservation_id,)).fetchone()
@@ -159,7 +159,7 @@ class MonetaryWithdrawal:
             if not row:
                 raise KeyError(reservation_id)
 
-            account_id, amount_cents, state = row
+            account_id, amount_cents, state, withdrawal_id = row
 
             if state != "RESERVED":
                 raise ValueError(
@@ -193,5 +193,19 @@ class MonetaryWithdrawal:
                 SET state='SETTLED', updated_at=?
                 WHERE reservation_id=?
             """, (now, reservation_id))
+
+            db.execute("""
+                INSERT INTO monetary_ledger
+                (entry_id, account_id, entry_type, amount_cents,
+                 reference_type, reference_id, description, created_at)
+                VALUES (?, ?, 'WITHDRAWAL_DEBIT', ?, 'WITHDRAWAL', ?, ?, ?)
+            """, (
+                uuid.uuid4().hex,
+                account_id,
+                int(amount_cents),
+                withdrawal_id,
+                'Settled withdrawal',
+                now,
+            ))
 
         return True

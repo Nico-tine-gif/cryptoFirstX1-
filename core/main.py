@@ -212,8 +212,22 @@ def main(argv=None):
     if func is None:
         parser.print_help()
         return 0
-    return func(args) or 0
-
+    try:
+        return func(args) or 0
+    except SystemExit:
+        raise
+    except KeyError as e:
+        sys.stderr.write(f"ERROR: not found: {e}\n")
+        return 4
+    except ValueError as e:
+        sys.stderr.write(f"ERROR: {e}\n")
+        return 5
+    except PermissionError as e:
+        sys.stderr.write(f"ERROR: {e}\n")
+        return 6
+    except Exception as e:
+        sys.stderr.write(f"ERROR: {type(e).__name__}: {e}\n")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
