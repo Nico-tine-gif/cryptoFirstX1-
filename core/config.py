@@ -19,3 +19,11 @@ ALLOW_AUTOMATIC_CASHOUT = False
 WITHDRAWAL_MAX_PER_HOUR     = 0
 WITHDRAWAL_DAILY_CAP_CENTS  = 0
 WITHDRAWAL_MIN_ALLOWLIST    = 1
+
+
+# ------------------------------------------------------------------
+# P11 — ADMIN CONTROL PANEL
+# ------------------------------------------------------------------
+PANEL_HOST           = "127.0.0.1"
+PANEL_PORT           = 8765
+PANEL_AUTO_REFRESH_S = 5

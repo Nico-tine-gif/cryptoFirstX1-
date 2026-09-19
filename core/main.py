@@ -180,6 +180,13 @@ def cmd_allowlist(args):
         print(f"removed: {args.address}")
 
 
+
+
+def cmd_panel(args):
+    from .panel.server import serve
+    serve(host=args.host, port=args.port)
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog=PROJECT_NAME,
@@ -229,6 +236,12 @@ def build_parser():
     al.add_argument("address", nargs="?", default="")
     al.add_argument("--label", default="")
     al.set_defaults(func=cmd_allowlist)
+
+
+    pan = sub.add_parser("panel")
+    pan.add_argument("--host", default=None)
+    pan.add_argument("--port", type=int, default=None)
+    pan.set_defaults(func=cmd_panel)
 
     sub.add_parser("lock").set_defaults(func=cmd_lock)
     sub.add_parser("unlock").set_defaults(func=cmd_unlock)
