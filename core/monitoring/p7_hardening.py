@@ -4,14 +4,6 @@ P7 hardening layer.
 
 P8 imports this module as:
     from core.monitoring.p7_hardening import P7Hardening
-
-Contract:
-    P7Hardening(db_path=..., interval=...) -> instance
-    .status() -> dict
-    .cycle()  -> dict
-
-Class names in p7_live.py / p7_monitor.py are discovered at runtime,
-so renaming them in those modules won't break P8.
 """
 
 import importlib
@@ -38,7 +30,6 @@ class P7Hardening:
             self.errors.append(f"{module_name}: {exc}")
             return None
 
-        # Preferred class names first
         for name in prefer:
             cls = getattr(mod, name, None)
             if inspect.isclass(cls):
@@ -48,7 +39,6 @@ class P7Hardening:
                     self.errors.append(f"{module_name}.{name}: {exc}")
                     return None
 
-        # Any public class defined in that module
         for name, obj in vars(mod).items():
             if name.startswith("_"):
                 continue
@@ -58,7 +48,6 @@ class P7Hardening:
                 except Exception:
                     continue
 
-        # Fall back to the module itself (function-style API)
         return mod
 
     def _load(self):
@@ -106,5 +95,4 @@ class P7Hardening:
         return result
 
 
-# Back-compat alias for anything that imported the old stub name.
 MonitoringService = P7Hardening
