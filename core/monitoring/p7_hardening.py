@@ -10,10 +10,12 @@ Contract:
     .status() -> dict
     .cycle()  -> dict
 
-Wraps core.monitoring.p7_live and core.monitoring.p7_monitor if present.
-Fails safe — never raises out of status() or cycle().
+Class names in p7_live.py / p7_monitor.py are discovered at runtime,
+so renaming them in those modules won't break P8.
 """
 
+import importlib
+import inspect
 import time
 
 
@@ -29,17 +31,45 @@ class P7Hardening:
         self._monitor = None
         self._load()
 
+    def _try_import(self, module_name, prefer):
+        try:
+            mod = importlib.import_module(module_name)
+        except Exception as exc:
+            self.errors.append(f"{module_name}: {exc}")
+            return None
+
+        # Preferred class names first
+        for name in prefer:
+            cls = getattr(mod, name, None)
+            if inspect.isclass(cls):
+                try:
+                    return cls()
+                except Exception as exc:
+                    self.errors.append(f"{module_name}.{name}: {exc}")
+                    return None
+
+        # Any public class defined in that module
+        for name, obj in vars(mod).items():
+            if name.startswith("_"):
+                continue
+            if inspect.isclass(obj) and obj.__module__ == module_name:
+                try:
+                    return obj()
+                except Exception:
+                    continue
+
+        # Fall back to the module itself (function-style API)
+        return mod
+
     def _load(self):
-        try:
-            from core.monitoring.p7_live import P7Live
-            self._live = P7Live()
-        except Exception as exc:
-            self.errors.append(f"p7_live: {exc}")
-        try:
-            from core.monitoring.p7_monitor import P7Monitor
-            self._monitor = P7Monitor()
-        except Exception as exc:
-            self.errors.append(f"p7_monitor: {exc}")
+        self._live = self._try_import(
+            "core.monitoring.p7_live",
+            prefer=["P7Live", "P7LiveMonitor", "LiveMonitor", "RealtimeMonitor"],
+        )
+        self._monitor = self._try_import(
+            "core.monitoring.p7_monitor",
+            prefer=["P7Monitor", "Monitor"],
+        )
 
     def status(self):
         return {
@@ -76,5 +106,5 @@ class P7Hardening:
         return result
 
 
-# Back-compat alias for any code that imported the old stub name.
+# Back-compat alias for anything that imported the old stub name.
 MonitoringService = P7Hardening
