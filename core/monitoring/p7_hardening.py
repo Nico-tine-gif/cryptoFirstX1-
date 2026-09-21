@@ -5,12 +5,12 @@ P7 hardening layer.
 P8 imports this module as:
     from core.monitoring.p7_hardening import P7Hardening
 
-Wraps:
-    core.monitoring.p7_live.P7LiveMonitor    -> status() + scan()
-    core.monitoring.p7_monitor.P7Monitor     -> status() + events()
-
-Class names are discovered at runtime so renames in the submodules
-won't break P8.
+Wires:
+    P7LiveMonitor  -> status() + scan()           (Bitcoin adapter + ledger)
+    P7Monitor      -> status() + events()         (network coordinator)
+                      record_block() is called from cycle() with the
+                      latest tip, so network_status flips to HEALTHY
+                      after the first successful scan.
 """
 
 import importlib
@@ -28,6 +28,7 @@ class P7Hardening:
         self.errors = []
         self._live = None
         self._monitor = None
+        self._last_recorded_height = None
         self._load()
 
     def _try_import(self, module_name, prefer, **ctor_kwargs):
@@ -69,9 +70,12 @@ class P7Hardening:
             prefer=["P7LiveMonitor", "P7Live", "LiveMonitor", "RealtimeMonitor"],
             db_path=self.db_path,
         )
+        # Inject the live adapter so the coordinator can observe the network
+        adapter = getattr(self._live, "adapter", None) if self._live else None
         self._monitor = self._try_import(
             "core.monitoring.p7_monitor",
             prefer=["P7Monitor", "Monitor"],
+            network_adapter=adapter,
             db_path=self.db_path,
         )
 
@@ -85,6 +89,7 @@ class P7Hardening:
             "cycles": self.cycles,
             "live_loaded": self._live is not None,
             "monitor_loaded": self._monitor is not None,
+            "last_recorded_height": self._last_recorded_height,
             "errors": list(self.errors[-10:]),
             "status": "PASS",
         }
@@ -103,7 +108,8 @@ class P7Hardening:
         started = time.time()
         result = {"started_at": started, "hardening": True}
 
-        # ---- live monitor: status() + scan() -----------------------------
+        # ---- live: status() + scan() ------------------------------------
+        scan = None
         if self._live is not None:
             live = {}
             s = self._safe_call(self._live, "status")
@@ -114,7 +120,17 @@ class P7Hardening:
                 live["scan"] = scan
             result["live"] = live
 
-        # ---- coordinator: status() + events() ----------------------------
+        # ---- feed the coordinator so it can detect reorgs / update tip --
+        if self._monitor is not None and isinstance(scan, dict):
+            tip = scan.get("tip")
+            tip_hash = scan.get("tip_hash")
+            if tip is not None and tip_hash and tip != self._last_recorded_height:
+                rec = self._safe_call(self._monitor, "record_block", tip, tip_hash)
+                if rec is not None:
+                    result["recorded"] = rec
+                    self._last_recorded_height = tip
+
+        # ---- coordinator: status() + events() ---------------------------
         if self._monitor is not None:
             mon = {}
             s = self._safe_call(self._monitor, "status")
@@ -132,5 +148,4 @@ class P7Hardening:
         return result
 
 
-# Back-compat alias for anything that imported the old stub name.
 MonitoringService = P7Hardening

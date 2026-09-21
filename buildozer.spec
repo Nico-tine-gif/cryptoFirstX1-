@@ -1,47 +1,31 @@
 [app]
-# (str) Title of your application
-title = CryptoFirstX1
-
-# (str) Package name
+title = cryptoFirstX1
 package.name = cryptofirstx1
+package.domain = org.cryptofirstx1
 
-# (str) Package domain (needed for android/ios packaging)
-package.domain = org.nicotinegif
-
-# (str) Source code where the main.py live
 source.dir = .
+source.include_exts = py,txt,json,ttf,png,jpg,kv,atlas
+source.exclude_dirs = tests,.git,.buildozer,__pycache__,bin,logs
+source.exclude_patterns = *.pyc,*.pyo,*.apk,*.aab,requirements.txt
 
-# (list) Source files to include
-source.include_exts = py,png,jpg,kv,atlas,txt,json
+version = 0.1.0
 
-# Include your specific folders
-source.include_patterns = core/*,tests/*,scripts/*
+# buildozer splits on commas -> no "<" upper bounds here.
+# If you want the ranges from requirements.txt, keep them there and
+# install at runtime; p4a recipes pin their own versions anyway.
+requirements = python3,requests,cryptography,openssl,sqlite3
 
-# (str) Application versioning
-version = 0.1
-
-# (str) App orientation
-orientation = portrait
-
-# (str) App fullscreen
-fullscreen = 0
-
-# --- CRITICAL FIX FOR YOUR PYTHON ERRORS ---
-# Pinning both hostpython3 and python3 to the SAME version fixes the mismatch.
-# We also pin Cython to 0.29.33 because newer versions break Kivy's pyjnius.
-requirements = python3==3.11.1, hostpython3==3.11.1, kivy==2.3.0, cython==0.29.33, requests
-
-# --- PERMISSIONS ---
-android.permissions = INTERNET
-
-# --- ANDROID BUILD SETTINGS ---
-android.api = 31
-android.minapi = 21
+android.permissions = INTERNET,ACCESS_NETWORK_STATE
+android.api = 33
+android.minapi = 24
 android.ndk = 25b
-android.archs = arm64-v8a
-android.entrypoint = org.kivy.android.PythonActivity
+android.archs = arm64-v8a, armeabi-v7a
 android.accept_sdk_license = True
+android.allow_backup = True
 
-# --- CRITICAL FIX FOR THE -Werror CRASHES IN YOUR LOGS ---
-# This tells the NDK to ignore unknown compiler warnings instead of crashing.
-android.ndk_allows_werror = False
+# Headless supervisor — no Kivy window required.
+p4a.bootstrap = service_only
+
+[buildozer]
+log_level = 2
+warn_on_root = 1

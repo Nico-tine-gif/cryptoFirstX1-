@@ -14,3 +14,8 @@ venv/
 # Editor / OS
 .DS_Store
 *.swp
+
+# Runtime
+logs/*.log
+data/*.db-journal
+data/*.db
