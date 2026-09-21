@@ -29,3 +29,6 @@ p4a.bootstrap = service_only
 [buildozer]
 log_level = 2
 warn_on_root = 1
+
+# CI hint: buildozer auto-downloads SDK/NDK; do not prompt
+p4a.fork = kivy
