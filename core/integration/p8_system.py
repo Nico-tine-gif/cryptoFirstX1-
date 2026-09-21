@@ -29,6 +29,7 @@ class P8System:
         "P5": "core.withdrawals.service",
         "P6": "core.settlement.service",
         "P7": "core.monitoring.p7_hardening",
+        "P9": "core.p9",
     }
 
     def __init__(self, interval=60, db_path="data/cryptoFirstX1.db"):
@@ -66,6 +67,33 @@ class P8System:
                 results[phase] = "PASS"
 
         return results
+
+    def check_p9(self):
+        """Report P9 monetary/admin primitives exposed by core.p9."""
+        try:
+            from core import p9 as p9_mod
+        except Exception as exc:
+            return {"status": "FAIL", "error": str(exc)}
+
+        primitives = [
+            "Money", "MonetaryLedger", "BalanceService",
+            "P9MonetaryFoundation", "AdminFunds", "AdminController",
+            "MonetaryDepositCredit", "MonetaryWithdrawal", "P9AdminAccount",
+        ]
+        present, missing = [], []
+        for name in primitives:
+            if getattr(p9_mod, name, None) is not None:
+                present.append(name)
+            else:
+                missing.append(name)
+
+        bridge = getattr(p9_mod, "P9EarningsBridge", None)
+        return {
+            "status": "PASS" if not missing else "FAIL",
+            "present": present,
+            "missing": missing,
+            "earnings_bridge": "loaded" if bridge is not None else "unavailable",
+        }
 
     def check_database(self):
         if not self.db_path.exists():
@@ -118,6 +146,7 @@ class P8System:
             "phase": "P8",
             "integration": True,
             "database": self.check_database(),
+            "p9": self.check_p9(),
             "phases": self.check_imports(),
             "p7": p7_status,
             "safety": self.safety_status(),
