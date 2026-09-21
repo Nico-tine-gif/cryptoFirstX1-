@@ -1,9 +1,16 @@
+# Buildozer / python-for-android
+.buildozer/
+bin/
+*.apk
+*.aab
+
+# Python
 __pycache__/
-*.pyc
-.pytest_cache/
-data/*.db
-logs/*.jsonl
-backup_*/
-*.bak
-*.bak_*
-*.pre_cli
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+*.swp

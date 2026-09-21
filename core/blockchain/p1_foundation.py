@@ -1,15 +1,9 @@
-from core.networks.default_registry import create_registry
-
+# core/blockchain/p1_foundation.py
+# TODO: Implement blockchain foundation logic here
 
 class BlockchainFoundation:
-
     def __init__(self):
-        self.networks = create_registry()
+        pass
 
-    def sync(self, network="bitcoin"):
-        adapter = self.networks.get(network)
-        state = adapter.sync_tip()
-        return state.as_dict()
-
-    def networks_available(self):
-        return self.networks.names()
+    def connect(self):
+        print("Blockchain foundation initialized.")
