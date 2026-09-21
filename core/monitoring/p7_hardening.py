@@ -4,6 +4,13 @@ P7 hardening layer.
 
 P8 imports this module as:
     from core.monitoring.p7_hardening import P7Hardening
+
+Wraps:
+    core.monitoring.p7_live.P7LiveMonitor    -> status() + scan()
+    core.monitoring.p7_monitor.P7Monitor     -> status() + events()
+
+Class names are discovered at runtime so renames in the submodules
+won't break P8.
 """
 
 import importlib
@@ -23,7 +30,7 @@ class P7Hardening:
         self._monitor = None
         self._load()
 
-    def _try_import(self, module_name, prefer):
+    def _try_import(self, module_name, prefer, **ctor_kwargs):
         try:
             mod = importlib.import_module(module_name)
         except Exception as exc:
@@ -34,7 +41,13 @@ class P7Hardening:
             cls = getattr(mod, name, None)
             if inspect.isclass(cls):
                 try:
-                    return cls()
+                    return cls(**ctor_kwargs)
+                except TypeError:
+                    try:
+                        return cls()
+                    except Exception as exc:
+                        self.errors.append(f"{module_name}.{name}: {exc}")
+                        return None
                 except Exception as exc:
                     self.errors.append(f"{module_name}.{name}: {exc}")
                     return None
@@ -53,11 +66,13 @@ class P7Hardening:
     def _load(self):
         self._live = self._try_import(
             "core.monitoring.p7_live",
-            prefer=["P7Live", "P7LiveMonitor", "LiveMonitor", "RealtimeMonitor"],
+            prefer=["P7LiveMonitor", "P7Live", "LiveMonitor", "RealtimeMonitor"],
+            db_path=self.db_path,
         )
         self._monitor = self._try_import(
             "core.monitoring.p7_monitor",
             prefer=["P7Monitor", "Monitor"],
+            db_path=self.db_path,
         )
 
     def status(self):
@@ -74,20 +89,42 @@ class P7Hardening:
             "status": "PASS",
         }
 
+    @staticmethod
+    def _safe_call(obj, method, *args, **kwargs):
+        fn = getattr(obj, method, None)
+        if not callable(fn):
+            return None
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            return {"error": f"{method}: {exc}"}
+
     def cycle(self):
         started = time.time()
         result = {"started_at": started, "hardening": True}
-        for label, obj in (("live", self._live), ("monitor", self._monitor)):
-            if obj is None:
-                continue
-            fn = getattr(obj, "cycle", None)
-            if not callable(fn):
-                continue
-            try:
-                result[label] = fn()
-            except Exception as exc:
-                self.errors.append(f"{label}.cycle: {exc}")
-                result[f"{label}_error"] = str(exc)
+
+        # ---- live monitor: status() + scan() -----------------------------
+        if self._live is not None:
+            live = {}
+            s = self._safe_call(self._live, "status")
+            if s is not None:
+                live["status"] = s
+            scan = self._safe_call(self._live, "scan")
+            if scan is not None:
+                live["scan"] = scan
+            result["live"] = live
+
+        # ---- coordinator: status() + events() ----------------------------
+        if self._monitor is not None:
+            mon = {}
+            s = self._safe_call(self._monitor, "status")
+            if s is not None:
+                mon["status"] = s
+            events = self._safe_call(self._monitor, "events")
+            if events is not None:
+                mon["events"] = events
+            result["monitor"] = mon
+
         result["finished_at"] = time.time()
         result["duration_seconds"] = result["finished_at"] - started
         self.cycles += 1
@@ -95,4 +132,5 @@ class P7Hardening:
         return result
 
 
+# Back-compat alias for anything that imported the old stub name.
 MonitoringService = P7Hardening
